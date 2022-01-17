@@ -64,7 +64,9 @@ class stack_pool {
   template <typename X>
   stack_type _push(X&& val, stack_type head) {
     if (free_nodes == end()) {
-      pool.push_back(node_t());
+      node_t n = node_t();
+      n.next = end();
+      pool.push_back(std::move(n));
       free_nodes = pool.size();
     }
 
@@ -179,7 +181,7 @@ namespace stack_utils {
                                     stack_type head) {
     std::vector<value_type> v;
     do {
-      v.push_back(pool.value(head));
+      v.push_back(std::move(pool.value(head)));
     } while ((head = pool.pop(head)) != pool.end());
     return v;
   }
