@@ -84,8 +84,8 @@ class stack_pool {
   stack_pool() : free_nodes{end()} {};
   explicit stack_pool(size_type n) : free_nodes{end()} { reserve(n); }
 
-  using iterator = stack_iterator<stack_type, T, stack_pool>;
-  using const_iterator = stack_iterator<stack_type, const T, stack_pool>;
+  using iterator = stack_iterator<stack_type, T, const stack_pool>;
+  using const_iterator = stack_iterator<stack_type, const T, const stack_pool>;
 
   iterator begin(stack_type x) { return iterator(x, *this); }
   iterator end(stack_type x) { return iterator(end(), *this); }
@@ -161,3 +161,35 @@ class stack_pool {
     os << "END" << std::endl;
   }
 };
+
+namespace stack_utils {
+  template <typename foreign_iterator, typename value_type, typename stack_type>
+  stack_type push_all(stack_pool<value_type, stack_type>& pool,
+                      stack_type head,
+                      foreign_iterator first,
+                      foreign_iterator last) {
+    do {
+      head = pool.push(*first, head);
+    } while (++first != last);
+    return head;
+  }
+
+  template <typename value_type, typename stack_type>
+  std::vector<value_type> to_vector(stack_pool<value_type, stack_type>& pool,
+                                    stack_type head) {
+    std::vector<value_type> v;
+    do {
+      v.push_back(pool.value(head));
+    } while ((head = pool.pop(head)) != pool.end());
+    return v;
+  }
+
+  template <typename value_type, typename stack_type>
+  std::size_t stack_size(stack_pool<value_type, stack_type>& pool,
+                         stack_type head) {
+    std::size_t size = 0;
+    for (auto it = pool.cbegin(head); it != pool.cend(head); ++it)
+      ++size;
+    return size;
+  }
+}  // namespace stack_utils
