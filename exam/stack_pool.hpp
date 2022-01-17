@@ -3,7 +3,7 @@
 #include <vector>
 
 template <typename stack_type, typename T, typename P>
-class _iterator {
+class stack_iterator {
   stack_type current_head;
   P& pool;
 
@@ -14,10 +14,10 @@ class _iterator {
   using difference_type = std::ptrdiff_t;
   using iterator_category = std::forward_iterator_tag;
 
-  _iterator(stack_type head, P& spool) : current_head{head}, pool{spool} {}
-  ~_iterator() {}
+  stack_iterator(stack_type head, P& spool) : current_head{head}, pool{spool} {}
+  ~stack_iterator() {}
 
-  _iterator& operator=(_iterator& other) {
+  stack_iterator& operator=(stack_iterator& other) {
     current_head = other.current_head;
     pool = other.pool;
     return *this;
@@ -25,20 +25,20 @@ class _iterator {
 
   T& operator*() const { return pool.value(current_head); }
 
-  _iterator& operator++() {
+  stack_iterator& operator++() {
     current_head = pool.next(current_head);
     return *this;
   }
-  _iterator operator++(int) {
+  stack_iterator operator++(int) {
     auto tmp = *this;
     ++(*this);
     return tmp;
   }
 
-  friend bool operator==(const _iterator& a, const _iterator& b) {
+  friend bool operator==(const stack_iterator& a, const stack_iterator& b) {
     return a.current_head == b.current_head;
   }
-  friend bool operator!=(const _iterator& a, const _iterator& b) {
+  friend bool operator!=(const stack_iterator& a, const stack_iterator& b) {
     return !(a == b);
   }
 };
@@ -84,8 +84,8 @@ class stack_pool {
   stack_pool() : free_nodes{end()} {};
   explicit stack_pool(size_type n) : free_nodes{end()} { reserve(n); }
 
-  using iterator = _iterator<stack_type, T, stack_pool>;
-  using const_iterator = _iterator<stack_type, const T, stack_pool>;
+  using iterator = stack_iterator<stack_type, T, stack_pool>;
+  using const_iterator = stack_iterator<stack_type, const T, stack_pool>;
 
   iterator begin(stack_type x) { return iterator(x, *this); }
   iterator end(stack_type x) { return iterator(end(), *this); }
