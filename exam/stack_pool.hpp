@@ -1,5 +1,47 @@
 #include <iostream>
+#include <iterator>
 #include <vector>
+
+template <typename stack_type, typename T, typename P>
+class _iterator {
+  stack_type current_head;
+  P& pool;
+
+ public:
+  using value_type = T;
+  using reference = value_type&;
+  using pointer = value_type*;
+  using difference_type = std::ptrdiff_t;
+  using iterator_category = std::forward_iterator_tag;
+
+  _iterator(stack_type head, P& spool) : current_head{head}, pool{spool} {}
+  ~_iterator() {}
+
+  _iterator& operator=(_iterator& other) {
+    current_head = other.current_head;
+    pool = other.pool;
+    return *this;
+  }
+
+  T& operator*() const { return pool.value(current_head); }
+
+  _iterator& operator++() {
+    current_head = pool.next(current_head);
+    return *this;
+  }
+  _iterator operator++(int) {
+    auto tmp = *this;
+    ++(*this);
+    return tmp;
+  }
+
+  friend bool operator==(const _iterator& a, const _iterator& b) {
+    return a.current_head == b.current_head;
+  }
+  friend bool operator!=(const _iterator& a, const _iterator& b) {
+    return !(a == b);
+  }
+};
 
 template <typename T, typename N = std::size_t>
 class stack_pool {
@@ -14,7 +56,7 @@ class stack_pool {
   using value_type = T;
   using size_type = typename std::vector<node_t>::size_type;
 
-  stack_type free_nodes;  // at the beginning, it is empty
+  stack_type free_nodes;
 
   node_t& node(stack_type x) noexcept { return pool[x - 1]; }
   const node_t& node(stack_type x) const noexcept { return pool[x - 1]; }
@@ -42,17 +84,21 @@ class stack_pool {
   stack_pool() : free_nodes{end()} {};
   explicit stack_pool(size_type n) : free_nodes{end()} { reserve(n); }
 
-  //  using iterator = ...;
-  //  using const_iterator = ...;
+  using iterator = _iterator<stack_type, T, stack_pool>;
+  using const_iterator = _iterator<stack_type, const T, stack_pool>;
 
-  // iterator begin(stack_type x);
-  // iterator end(stack_type);  // this is not a typo
+  iterator begin(stack_type x) { return iterator(x, *this); }
+  iterator end(stack_type x) { return iterator(end(), *this); }
 
-  // const_iterator begin(stack_type x) const;
-  // const_iterator end(stack_type) const;
+  const_iterator begin(stack_type x) const { return const_iterator(x, *this); }
+  const_iterator end(stack_type x) const {
+    return const_iterator(end(), *this);
+  }
 
-  // const_iterator cbegin(stack_type x) const;
-  // const_iterator cend(stack_type) const;
+  const_iterator cbegin(stack_type x) const { return const_iterator(x, *this); }
+  const_iterator cend(stack_type x) const {
+    return const_iterator(end(), *this);
+  }
 
   stack_type new_stack() { return end(); }
 
