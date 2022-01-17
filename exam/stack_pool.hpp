@@ -21,26 +21,19 @@ class stack_pool {
 
   template <typename X>
   stack_type _push(X&& val, stack_type head) {
-#ifdef DEBUG
-    std::cout << "[DEBUG] push called with head " << head << " and value "
-              << val << std::endl;
-#endif
-
-    if (free_nodes == end())
-      reserve(1 + 2 * capacity());
+    if (free_nodes == end()) {
+      pool.push_back(node_t());
+      free_nodes = pool.size();
+    }
 
     stack_type new_head = free_nodes;
-    node_t new_head_node = node(new_head);
+    node_t& new_head_node = node(new_head);
 
     // we update free_nodes using the next free node
     free_nodes = new_head_node.next;
 
     new_head_node.next = head;
     new_head_node.value = std::forward<X>(val);
-#ifdef DEBUG
-    std::cout << "[DEBUG] set " << new_head << " to " << val
-              << " (check: val=" << new_head_node.value << ")" << std::endl;
-#endif
 
     return new_head;
   }
@@ -63,26 +56,7 @@ class stack_pool {
 
   stack_type new_stack() { return end(); }
 
-  void reserve(size_type n) {
-    size_type old_capacity = capacity();
-#ifdef DEBUG
-    std::cout << "[DEBUG] Reserve called with argument " << n
-              << ", old_capacity is " << old_capacity << std::endl;
-#endif
-    pool.reserve(n);
-
-    // we push the new nodes to the stack of free nodes
-    size_type previous_node = free_nodes;
-    for (size_type i = old_capacity + 1; i <= n; ++i) {
-      node(i).next = previous_node;
-      free_nodes = i;
-      previous_node = i;
-    }
-
-#ifdef DEBUG
-    std::cout << "[DEBUG] free_nodes head is now " << free_nodes << std::endl;
-#endif
-  }
+  void reserve(size_type n) { pool.reserve(n); }
   size_type capacity() const { return pool.capacity(); }
 
   bool empty(stack_type x) const { return x == end(); }
@@ -102,7 +76,7 @@ class stack_pool {
 
   stack_type pop(stack_type x) {
     // the head is an empty node "allocated" for a stack
-    node_t head = node(x);
+    node_t& head = node(x);
     stack_type new_head = head.next;
 
     // the newly freed node becomes the head of the stack of free nodes
@@ -113,14 +87,17 @@ class stack_pool {
   }
 
   stack_type free_stack(stack_type x) {
+    if (x == end())
+      return x;
+
     // we look for the bottom-element of this stack, and make it point to the
     // head of the stack free_nodes
-    stack_type bottom;
-    stack_type temp_parent = x;
-    while ((temp_parent = node(temp_parent)) != end())
-      bottom = temp_parent;
+    node_t& bottom = node(x);
+    // we stop when next is end()
+    while ((bottom = node(bottom.next)).next != end())
+      ;
 
-    node(bottom).next = free_nodes;
+    bottom.next = free_nodes;
     // the head of the free_nodes stack is now the former head of the old stack
     free_nodes = x;
 
@@ -129,10 +106,12 @@ class stack_pool {
   }
 
   void print_stack(std::ostream& os, stack_type head) {
+    os << "STACK (head=" << head << ")" << std::endl;
     while (head != end()) {
-      node_t head_node = node(head);
+      node_t& head_node = node(head);
+      os << head << " -> " << head_node.value << std::endl;
       head = head_node.next;
-      os << head_node.value << std::endl;
     }
+    os << "END" << std::endl;
   }
 };
