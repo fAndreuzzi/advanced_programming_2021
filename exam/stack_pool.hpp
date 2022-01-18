@@ -56,6 +56,24 @@ class stack_iterator {
   }
 };
 
+/**
+ * @brief A pool which can handle multiple stacks.
+ *
+ * This pool uses an underlying std::vector to handle multiple stacks at the
+ * same time. New elements are added using std::vector::push_back"()", therefore
+ * re-allocations may occur when needed. For this reason it is advised to use
+ * stack_pool::reserve and to forecast multiple allocations before they occur
+ * to improve performance.
+ *
+ * It is strongly recommended not to ignore returned values from the functions
+ * of stack_pool. For instance, stack_pool::push and stack_pool::pop return the
+ * head of the new stack: using the former head will result 100% in unintended
+ * behaviors and unpredictable errors, since elements popped from a stack are
+ * not reset to default values (but are inserted into a stack of "free nodes").
+ *
+ * @tparam T Type of the values to be held in the stacks of this pool.
+ * @tparam N Type using to designate the head of a stack.
+ */
 template <typename T, typename N = std::size_t>
 class stack_pool {
  private:
@@ -96,7 +114,17 @@ class stack_pool {
   }
 
  public:
+  /**
+   * @brief Construct a new stack pool object having initial capacity 0.
+   *
+   */
   stack_pool() : free_nodes{end()} {};
+
+  /**
+   * @brief Construct a new stack pool object having a given initial capacity.
+   *
+   * @param n The initial capacity of the pool.
+   */
   explicit stack_pool(size_type n) : free_nodes{end()} { reserve(n); }
 
   using iterator = stack_iterator<stack_type, T, const stack_pool>;
@@ -115,11 +143,39 @@ class stack_pool {
     return const_iterator(end(), *this);
   }
 
+  /**
+   * @brief "Allocate" a new stack in this pool. Returns the head of the new
+   * stack.
+   *
+   * @return stack_type
+   */
   stack_type new_stack() { return end(); }
 
+  /**
+   * @brief Advise the pool to allocate some more space.
+   *
+   * This method might be useful to improve performance when adding multiple
+   * elements all in once to the pool.
+   *
+   * @param n The advised new size of the stack.
+   */
   void reserve(size_type n) { pool.reserve(n); }
+
+  /**
+   * @brief Return the capacity of the pool (i.e. the total number of stack
+   * elements it can hold without reallocating space).
+   *
+   * @return size_type
+   */
   size_type capacity() const { return pool.capacity(); }
 
+  /**
+   * @brief Check whether the given stack is empty.
+   *
+   * @param x Head of the stack.
+   * @return true If the stack is empty.
+   * @return false Otherwise.
+   */
   bool empty(stack_type x) const { return x == end(); }
 
   stack_type end() const noexcept { return stack_type(0); }
@@ -130,41 +186,77 @@ class stack_pool {
   stack_type& next(stack_type x) { return node(x).next; }
   const stack_type& next(stack_type x) const { return node(x).next; }
 
+  /**
+   * @brief Push an element to the front of the stack. Returns the new head of
+   * the stack.
+   *
+   * @param val Value to be pushed.
+   * @param head Head of the stack.
+   * @return stack_type
+   */
   stack_type push(const T& val, stack_type head) { return _push(val, head); }
+
+  /**
+   * @brief Push an element to the front of the stack. Returns the new head of
+   * the stack.
+   *
+   * @param val Value to be pushed.
+   * @param head Head of the stack.
+   * @return stack_type
+   */
   stack_type push(T&& val, stack_type head) {
     return _push(std::move(val), head);
   }
 
-  stack_type pop(stack_type x) {
+  /**
+   * @brief Pop the head of the given stack.
+   *
+   * @param head Head of the stack from which we intend to pop the front
+   *                element.
+   * @return stack_type
+   */
+  stack_type pop(stack_type head) {
     // the head is an empty node "allocated" for a stack
-    node_t& head = node(x);
-    stack_type new_head = head.next;
+    stack_type& former_head_next = next(head);
+    stack_type new_stack_head = former_head_next;
 
     // the newly freed node becomes the head of the stack of free nodes
-    head.next = free_nodes;
-    free_nodes = x;
+    former_head_next = free_nodes;
+    free_nodes = head;
 
-    return new_head;
+    return new_stack_head;
   }
 
-  stack_type free_stack(stack_type x) {
-    if (x == end())
-      return x;
+  /**
+   * @brief Empty the given stack.
+   *
+   * @param head Head of the stack to be emptied.
+   * @return stack_type
+   */
+  stack_type free_stack(stack_type head) {
+    if (head == end())
+      return head;
 
     // we look for the bottom-element of this stack, and make it point to the
     // head of the stack free_nodes
-    iterator current_node = begin(x);
-    while (current_node.const_next() != cend(x))
+    iterator current_node = begin(head);
+    while (current_node.const_next() != cend(head))
       ++current_node;
 
     node(current_node.as_stack_type()).next = free_nodes;
     // the head of the free_nodes stack is now the former head of the old stack
-    free_nodes = x;
+    free_nodes = head;
 
     // the stack is now empty
     return end();
   }
 
+  /**
+   * @brief Print the content of the given stack. The stack is not modified.
+   *
+   * @param os An output stream (like `std::cout` or `std::cerr`).
+   * @param head The head of the stack to be printed.
+   */
   void print_stack(std::ostream& os, stack_type head) {
     os << "STACK (head=" << head << ")" << std::endl;
     for (auto it = cbegin(head); it != cend(head); ++it)
@@ -174,6 +266,21 @@ class stack_pool {
 };
 
 namespace stack_utils {
+  /**
+   * @brief
+   *
+   * @tparam foreign_iterator Some kind of iterator which delivers values of
+   *            type `value_type`.
+   * @tparam value_type Type of the values held in the stack pool.
+   * @tparam stack_type Type of "pointers" to stack nodes.
+   * @param pool Stack pool containing the stack referenced by `head`.
+   * @param head Head of the stack to be augmented.
+   * @param first An iterator pointing to the first element to be pushed into
+   *            the stack.
+   * @param last An iterator pointing past the last element to be pushed into
+   *            the stack.
+   * @return stack_type
+   */
   template <typename foreign_iterator, typename value_type, typename stack_type>
   stack_type push_all(stack_pool<value_type, stack_type>& pool,
                       stack_type head,
@@ -185,6 +292,16 @@ namespace stack_utils {
     return head;
   }
 
+  /**
+   * @brief Convert the given stack to a Vector. The stack is empty afterwards,
+   * and should not be mentioned anymore.
+   *
+   * @tparam value_type Type of the values held in the stack pool.
+   * @tparam stack_type Type of "pointers" to stack nodes.
+   * @param pool Stack pool containing the stack referenced by `head`.
+   * @param head Head of the stack to be converted.
+   * @return std::vector<value_type>
+   */
   template <typename value_type, typename stack_type>
   std::vector<value_type> to_vector(stack_pool<value_type, stack_type>& pool,
                                     stack_type head) {
@@ -195,6 +312,16 @@ namespace stack_utils {
     return v;
   }
 
+  /**
+   * @brief Compute the size of the stack starting at the given `head`. The
+   * stack is not modified.
+   *
+   * @tparam value_type Type of the values held in the stack pool.
+   * @tparam stack_type Type of "pointers" to stack nodes.
+   * @param pool Stack pool containing the stack referenced by `head`.
+   * @param head Head of the stack to be measured.
+   * @return std::size_t
+   */
   template <typename value_type, typename stack_type>
   std::size_t stack_size(stack_pool<value_type, stack_type>& pool,
                          stack_type head) {
