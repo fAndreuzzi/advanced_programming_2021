@@ -102,14 +102,12 @@ class stack_pool {
     }
 
     stack_type new_head = free_nodes;
-    node_t& new_head_node = node(new_head);
 
-    // we update free_nodes using the next free node
-    free_nodes = new_head_node.next;
+    // we use the next free node as the new head of the stack free_nodes
+    free_nodes = next(free_nodes);
 
-    new_head_node.next = head;
-    new_head_node.value = std::forward<X>(val);
-
+    next(new_head) = head;
+    value(new_head) = std::forward<X>(val);
     return new_head;
   }
 
@@ -216,12 +214,10 @@ class stack_pool {
    * @return stack_type
    */
   stack_type pop(stack_type head) {
-    // the head is an empty node "allocated" for a stack
-    stack_type& former_head_next = next(head);
-    stack_type new_stack_head = former_head_next;
+    stack_type new_stack_head = next(head);
 
     // the newly freed node becomes the head of the stack of free nodes
-    former_head_next = free_nodes;
+    next(head) = free_nodes;
     free_nodes = head;
 
     return new_stack_head;
@@ -234,7 +230,7 @@ class stack_pool {
    * @return stack_type
    */
   stack_type free_stack(stack_type head) {
-    if (head == end())
+    if (empty(head))
       return head;
 
     // we look for the bottom-element of this stack, and make it point to the
@@ -243,7 +239,7 @@ class stack_pool {
     while (current_node.const_next() != cend(head))
       ++current_node;
 
-    node(current_node.as_stack_type()).next = free_nodes;
+    next(current_node.as_stack_type()) = free_nodes;
     // the head of the free_nodes stack is now the former head of the old stack
     free_nodes = head;
 
@@ -306,9 +302,11 @@ namespace stack_utils {
   std::vector<value_type> to_vector(stack_pool<value_type, stack_type>& pool,
                                     stack_type head) {
     std::vector<value_type> v;
-    do {
-      v.push_back(std::move(pool.value(head)));
-    } while ((head = pool.pop(head)) != pool.end());
+    if (!pool.empty(head)) {
+      do {
+        v.push_back(std::move(pool.value(head)));
+      } while ((head = pool.pop(head)) != pool.end());
+    }
     return v;
   }
 
