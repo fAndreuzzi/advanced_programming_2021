@@ -15,6 +15,10 @@ class stack_iterator {
   using iterator_category = std::forward_iterator_tag;
 
   stack_iterator(stack_type head, P& spool) : current_head{head}, pool{spool} {}
+  stack_iterator(stack_iterator& other)
+      : current_head(other.current_head), pool{other.pool} {}
+  stack_iterator(stack_iterator&& other)
+      : current_head(other.current_head), pool{std::move(other.pool)} {}
   ~stack_iterator() {}
 
   stack_iterator& operator=(stack_iterator& other) {
@@ -23,7 +27,10 @@ class stack_iterator {
     return *this;
   }
 
-  T& operator*() const { return pool.value(current_head); }
+  T&& operator*() const {
+    T value = pool.value(current_head);
+    return std::move(value);
+  }
 
   stack_iterator& operator++() {
     current_head = pool.next(current_head);
@@ -34,6 +41,12 @@ class stack_iterator {
     ++(*this);
     return tmp;
   }
+
+  stack_iterator<stack_type, const T, P> const_next() const {
+    return pool.cbegin(pool.next(current_head));
+  }
+
+  const stack_type as_stack_type() const { return current_head; }
 
   friend bool operator==(const stack_iterator& a, const stack_iterator& b) {
     return a.current_head == b.current_head;
@@ -140,12 +153,11 @@ class stack_pool {
 
     // we look for the bottom-element of this stack, and make it point to the
     // head of the stack free_nodes
-    node_t& bottom = node(x);
-    // we stop when next is end()
-    while ((bottom = node(bottom.next)).next != end())
-      ;
+    iterator current_node = begin(x);
+    while (current_node.const_next() != cend(x))
+      ++current_node;
 
-    bottom.next = free_nodes;
+    node(current_node.as_stack_type()).next = free_nodes;
     // the head of the free_nodes stack is now the former head of the old stack
     free_nodes = x;
 
@@ -155,11 +167,8 @@ class stack_pool {
 
   void print_stack(std::ostream& os, stack_type head) {
     os << "STACK (head=" << head << ")" << std::endl;
-    while (head != end()) {
-      node_t& head_node = node(head);
-      os << head << " -> " << head_node.value << std::endl;
-      head = head_node.next;
-    }
+    for (auto it = cbegin(head); it != cend(head); ++it)
+      os << *it << " -> " << *it << std::endl;
     os << "END" << std::endl;
   }
 };
