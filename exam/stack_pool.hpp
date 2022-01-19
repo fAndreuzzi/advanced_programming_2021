@@ -40,9 +40,8 @@ class stack_iterator {
   // we do not need to do anything since we do not hold the given pool
   ~stack_iterator() {}
 
-  T&& operator*() const {
-    T value = pool->value(current_head);
-    return std::move(value);
+  T& operator*() const {
+    return pool->value(current_head);
   }
 
   stack_iterator& operator++() {
@@ -117,6 +116,7 @@ class stack_pool {
 
     next(new_head) = head;
     value(new_head) = std::forward<X>(val);
+
     return new_head;
   }
 
