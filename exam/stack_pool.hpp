@@ -5,7 +5,7 @@
 template <typename stack_type, typename T, typename P>
 class stack_iterator {
   stack_type current_head;
-  P& pool;
+  P* pool;
 
  public:
   using value_type = T;
@@ -14,12 +14,15 @@ class stack_iterator {
   using difference_type = std::ptrdiff_t;
   using iterator_category = std::forward_iterator_tag;
 
-  stack_iterator(stack_type head, P& spool) : current_head{head}, pool{spool} {}
+  stack_iterator(stack_type head, P* pool_ptr)
+      : current_head{head}, pool{pool_ptr} {
+    if (pool_ptr == nullptr)
+      throw std::invalid_argument("The given pool points to nullptr.");
+  }
   stack_iterator(stack_iterator& other)
       : current_head(other.current_head), pool{other.pool} {}
   stack_iterator(stack_iterator&& other)
-      : current_head(other.current_head), pool{std::move(other.pool)} {}
-  ~stack_iterator() {}
+      : current_head(other.current_head), pool{other.pool} {}
 
   stack_iterator& operator=(stack_iterator& other) {
     current_head = other.current_head;
@@ -27,13 +30,23 @@ class stack_iterator {
     return *this;
   }
 
+  stack_iterator& operator=(stack_iterator&& other) {
+    current_head = std::move(other.current_head);
+    pool = other.pool;
+    other.pool = nullptr;
+    return *this;
+  }
+
+  // we do not need to do anything since we do not hold the given pool
+  ~stack_iterator() {}
+
   T&& operator*() const {
-    T value = pool.value(current_head);
+    T value = pool->value(current_head);
     return std::move(value);
   }
 
   stack_iterator& operator++() {
-    current_head = pool.next(current_head);
+    current_head = pool->next(current_head);
     return *this;
   }
   stack_iterator operator++(int) {
@@ -42,11 +55,7 @@ class stack_iterator {
     return tmp;
   }
 
-  stack_iterator<stack_type, const T, P> const_next() const {
-    return pool.cbegin(pool.next(current_head));
-  }
-
-  const stack_type as_stack_type() const { return current_head; }
+  stack_type ptr_to_stack() { return current_head; }
 
   friend bool operator==(const stack_iterator& a, const stack_iterator& b) {
     return a.current_head == b.current_head;
@@ -128,17 +137,17 @@ class stack_pool {
   using iterator = stack_iterator<stack_type, T, const stack_pool>;
   using const_iterator = stack_iterator<stack_type, const T, const stack_pool>;
 
-  iterator begin(stack_type x) { return iterator(x, *this); }
-  iterator end(stack_type x) { return iterator(end(), *this); }
+  iterator begin(stack_type x) { return iterator(x, this); }
+  iterator end(stack_type x) { return iterator(end(), this); }
 
-  const_iterator begin(stack_type x) const { return const_iterator(x, *this); }
+  const_iterator begin(stack_type x) const { return const_iterator(x, this); }
   const_iterator end(stack_type x) const {
     return const_iterator(end(), *this);
   }
 
-  const_iterator cbegin(stack_type x) const { return const_iterator(x, *this); }
+  const_iterator cbegin(stack_type x) const { return const_iterator(x, this); }
   const_iterator cend(stack_type x) const {
-    return const_iterator(end(), *this);
+    return const_iterator(end(), this);
   }
 
   /**
@@ -236,28 +245,17 @@ class stack_pool {
     // we look for the bottom-element of this stack, and make it point to the
     // head of the stack free_nodes
     iterator current_node = begin(head);
-    while (current_node.const_next() != cend(head))
-      ++current_node;
+    iterator next_node = current_node;
+    ++next_node;
+    while (next_node != end(head))
+      current_node = next_node++;
 
-    next(current_node.as_stack_type()) = free_nodes;
+    next(current_node.ptr_to_stack()) = free_nodes;
     // the head of the free_nodes stack is now the former head of the old stack
     free_nodes = head;
 
     // the stack is now empty
     return end();
-  }
-
-  /**
-   * @brief Print the content of the given stack. The stack is not modified.
-   *
-   * @param os An output stream (like `std::cout` or `std::cerr`).
-   * @param head The head of the stack to be printed.
-   */
-  void print_stack(std::ostream& os, stack_type head) {
-    os << "STACK (head=" << head << ")" << std::endl;
-    for (auto it = cbegin(head); it != cend(head); ++it)
-      os << *it << " -> " << *it << std::endl;
-    os << "END" << std::endl;
   }
 };
 
@@ -327,5 +325,21 @@ namespace stack_utils {
     for (auto it = pool.cbegin(head); it != pool.cend(head); ++it)
       ++size;
     return size;
+  }
+
+  /**
+   * @brief Print the content of the given stack. The stack is not modified.
+   *
+   * @param os An output stream (like `std::cout` or `std::cerr`).
+   * @param head The head of the stack to be printed.
+   */
+  template <typename value_type, typename stack_type>
+  void print_stack(std::ostream& os,
+                   stack_pool<value_type, stack_type>& pool,
+                   stack_type head) {
+    os << "STACK (head=" << head << ")" << std::endl;
+    for (auto it = pool.cbegin(head); it != pool.cend(head); ++it)
+      os << it.ptr_to_stack() << " -> " << *it << std::endl;
+    os << "END" << std::endl;
   }
 }  // namespace stack_utils
