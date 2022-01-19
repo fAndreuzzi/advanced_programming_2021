@@ -134,7 +134,7 @@ class stack_pool {
    */
   explicit stack_pool(size_type n) : free_nodes{end()} { reserve(n); }
 
-  using iterator = stack_iterator<stack_type, T, const stack_pool>;
+  using iterator = stack_iterator<stack_type, T, stack_pool>;
   using const_iterator = stack_iterator<stack_type, const T, const stack_pool>;
 
   iterator begin(stack_type x) { return iterator(x, this); }
