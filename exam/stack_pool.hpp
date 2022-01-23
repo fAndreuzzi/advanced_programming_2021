@@ -14,7 +14,7 @@ class stack_iterator {
   using difference_type = std::ptrdiff_t;
   using iterator_category = std::forward_iterator_tag;
 
-  stack_iterator(stack_type head, P* pool_ptr)
+  stack_iterator(stack_type head, P* const pool_ptr)
       : current_head{head}, pool{pool_ptr} {
     // check the pool
     if (pool_ptr == nullptr)
@@ -74,7 +74,7 @@ class stack_iterator {
     return tmp;
   }
 
-  const stack_type& ptr_to_stack() const noexcept { return current_head; }
+  stack_type ptr_to_stack() const noexcept { return current_head; }
 
   friend bool operator==(const stack_iterator& a,
                          const stack_iterator& b) noexcept {
