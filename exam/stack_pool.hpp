@@ -124,7 +124,12 @@ class stack_pool {
   const node_t& node(stack_type x) const { return pool.at(x - 1); }
 
   template <typename X>
-  stack_type _push(X&& val, stack_type head) {
+  // universal reference
+  // this is marked as noexcept because it is not possible to get an exception,
+  // since the allocation of a new free node is managed internally, and head
+  // is just used as the new "next node" of the free node in which the new
+  // value is placed.
+  stack_type _push(X&& val, stack_type head) noexcept {
     // if needed, we allocate a new free node
     if (free_nodes == end()) {
       node_t n = node_t();
@@ -156,21 +161,21 @@ class stack_pool {
    *
    * @param n The initial capacity of the pool.
    */
-  explicit stack_pool(size_type n) noexcept : free_nodes{end()} { reserve(n); }
+  explicit stack_pool(size_type n) : free_nodes{end()} { reserve(n); }
 
   using iterator = stack_iterator<stack_type, T, stack_pool>;
   using const_iterator = stack_iterator<stack_type, const T, const stack_pool>;
 
   iterator begin(stack_type x) { return iterator(x, this); }
-  iterator end(stack_type x) noexcept { return iterator(end(), this); }
+  iterator end(stack_type) noexcept { return iterator(end(), this); }
 
   const_iterator begin(stack_type x) const { return const_iterator(x, this); }
-  const_iterator end(stack_type x) const noexcept {
+  const_iterator end(stack_type) const noexcept {
     return const_iterator(end(), this);
   }
 
   const_iterator cbegin(stack_type x) const { return const_iterator(x, this); }
-  const_iterator cend(stack_type x) const noexcept {
+  const_iterator cend(stack_type) const noexcept {
     return const_iterator(end(), this);
   }
 
@@ -264,33 +269,31 @@ class stack_pool {
    * @brief Push an element to the front of the stack. Returns the new head of
    * the stack.
    *
-   * This method throws an exception if the given head is not a invalid index in
-   * the pool (i.e. negative index or bigger than the size of the pool).
-   *
-   * The pool does not check if the given head is actually the head of a stack,
-   * therefore it is up to the user to use the pool properly.
+   * The pool does not check if the given head is actually the head of a stack
+   * (or even a valid index of the pool) therefore it is up to the user to use
+   * the pool properly.
    *
    * @param val Value to be pushed.
    * @param head Head of the stack.
    * @return stack_type
    */
-  stack_type push(const T& val, stack_type head) { return _push(val, head); }
+  stack_type push(const T& val, stack_type head) noexcept {
+    return _push(val, head);
+  }
 
   /**
    * @brief Push an element to the front of the stack. Returns the new head of
    * the stack.
    *
-   * This method throws an exception if the given head is not a invalid index
-   * in the pool (i.e. negative index or bigger than the size of the pool).
-   *
-   * The pool does not check if the given head is actually the head of a stack,
-   * therefore it is up to the user to use the pool properly.
+   * The pool does not check if the given head is actually the head of a stack
+   * (or even a valid index of the pool) therefore it is up to the user to use
+   * the pool properly.
    *
    * @param val Value to be pushed.
    * @param head Head of the stack.
    * @return stack_type
    */
-  stack_type push(T&& val, stack_type head) {
+  stack_type push(T&& val, stack_type head) noexcept {
     return _push(std::move(val), head);
   }
 
@@ -379,7 +382,7 @@ namespace stack_utils {
   stack_type push_all(stack_pool<value_type, stack_type>& pool,
                       stack_type head,
                       foreign_iterator first,
-                      foreign_iterator last) {
+                      foreign_iterator last) noexcept {
     do {
       head = pool.push(*first, head);
     } while (++first != last);
